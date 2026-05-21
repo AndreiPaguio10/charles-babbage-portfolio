@@ -1,5 +1,5 @@
 <script setup>
-  import { ref } from 'vue';
+  import { ref, onMounted, onBeforeMount } from 'vue';
 
   import { Notyf } from 'notyf';
   import 'notyf/notyf.min.css';
@@ -50,8 +50,61 @@
 
         isLoading.value = false;
         notyf.error("Failed to send message")
+    } finally {
+
+        resetRecaptcha();
     }
 }
+
+/*recaptcha integration*/
+
+const SITE_KEY = '6LeIDPUsAAAAAN1JDLC5qTZoG3X0tEBG_AAGIUlZ';
+
+const recaptchaContainer = ref(null);
+const recaptchaWidgetID = ref(null);
+const recaptchaToken = ref('');
+
+function onRecaptchaSuccess(token) {
+    recaptchaToken.value = token;
+}
+
+function onRecaptchaExpired() {
+    recaptchaToken.value = '';
+}
+
+function renderRecaptcha() {
+    if(!window.grecaptcha) {
+        console.error('reCAPTCHA not loaded');
+        return;
+    }
+
+    recaptchaWidgetID.value = window.grecaptcha.render(recaptchaContainer.value, {
+        sitekey: SITE_KEY,
+        size: "normal",
+        callback: onRecaptchaSuccess,
+        'expired-callback': onRecaptchaExpired
+    });
+}
+
+function resetRecaptcha() {
+    if(recaptchaWidgetID.value !== null) {
+        window.grecaptcha.reset(recaptchaWidgetID.value);
+        recaptchaToken.value = '';
+    }
+}
+
+onMounted(() => {
+    const interval = setInterval(() => {
+        if(window.grecaptcha && window.grecaptcha.render) {
+            renderRecaptcha();
+            clearInterval(interval)
+        }
+    }, 100);
+
+    onBeforeMount(() => {
+        clearInterval(interval);
+    });
+})
 </script>
 
 <template>
@@ -72,6 +125,9 @@
                             <div class="mb-3">
                                 <textarea v-model="message" class="form-control contact-form-control" rows="6" placeholder="Message"></textarea>
                             </div>
+
+                            <div ref="recaptchaContainer" class="mb-3"></div>
+                            
                             <div class="form-footer">
                                 <div class="social-icons">
 <!--                                <a href="https://www.facebook.com/profile.php?id=100085701498879" id="facebook"><i class="fab fa-facebook"></i></a> -->
